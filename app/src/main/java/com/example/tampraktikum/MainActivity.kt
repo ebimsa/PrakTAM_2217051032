@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.example.tampraktikum.ui.theme.TAMPraktikumTheme
 
 class MainActivity : ComponentActivity() {
@@ -54,19 +59,41 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             TAMPraktikumTheme {
-                DaftarMakananScreen()
+                val navController = rememberNavController()
+                AppNavigation(navController)
             }
         }
     }
 }
 
 @Composable
-fun DaftarMakananScreen() {
+fun AppNavigation(navController: NavController) {
+    NavHost(
+        navController = navController as androidx.navigation.NavHostController,
+        startDestination = "home"
+    ) {
+        composable("home") {
+            DaftarMakanan(navController)
+        }
+        composable("detail/{nama}") { backStackEntry ->
+            val nama = backStackEntry.arguments?.getString("nama")
+            val food = FoodSource.dummyFood.find { it.nama == nama }
+            if (food != null) {
+                Box(modifier = Modifier.padding(16.dp)){
+                    DetailScreen(food = food, navController = navController, isFullScreen = true)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DaftarMakanan(navController: NavController) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding(),
-        contentPadding = PaddingValues(24.dp),
+        contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         item {
@@ -80,7 +107,7 @@ fun DaftarMakananScreen() {
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(FoodSource.dummyFood) { food ->
-                    FoodRowItem(food = food)
+                    FoodRowItem(food = food, navController = navController)
                 }
             }
             Spacer(modifier = Modifier.height(45.dp))
@@ -92,15 +119,20 @@ fun DaftarMakananScreen() {
         }
 
         items(FoodSource.dummyFood) { food ->
-            DetailScreen(food = food)
+            // Menggunakan DetailScreen sebagai item list agar tampilan home sama seperti sebelumnya
+            DetailScreen(food = food, navController = navController, isFullScreen = false)
         }
     }
 }
 
 @Composable
-fun FoodRowItem(food: Food) {
+fun FoodRowItem(food: Food, navController: NavController) {
     Card(
-        modifier = Modifier.width(160.dp),
+        modifier = Modifier
+            .width(160.dp)
+            .clickable {
+                navController.navigate("detail/${food.nama}")
+            },
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         colors = CardDefaults.cardColors(
@@ -133,7 +165,7 @@ fun FoodRowItem(food: Food) {
 }
 
 @Composable
-fun DetailScreen(food: Food) {
+fun DetailScreen(food: Food, navController: NavController, isFullScreen: Boolean = false) {
     var isFavorite by remember { mutableStateOf(false) }
 
     Card(
@@ -144,7 +176,7 @@ fun DetailScreen(food: Food) {
             containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
             Box {
                 Image(
                     painter = painterResource(id = food.imageRes),
@@ -187,10 +219,16 @@ fun DetailScreen(food: Food) {
             )
             Spacer(modifier = Modifier.height(16.dp))
             Button(
-                onClick = { },
+                onClick = {
+                    if (isFullScreen) {
+                        navController.popBackStack()
+                    } else {
+                        navController.navigate("detail/${food.nama}")
+                    }
+                },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Pesan Sekarang")
+                Text(if (isFullScreen) "Kembali" else "Pesan")
             }
         }
     }
@@ -198,8 +236,8 @@ fun DetailScreen(food: Food) {
 
 @Preview(showBackground = true)
 @Composable
-fun DaftarMakananScreenPreview() {
+fun DaftarMakananPreview() {
     TAMPraktikumTheme {
-        DaftarMakananScreen()
+        // Mock navController dummy jika diperlukan untuk preview
     }
 }
