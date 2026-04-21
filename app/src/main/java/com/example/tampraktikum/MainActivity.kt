@@ -1,6 +1,6 @@
 package com.example.tampraktikum
 
-import com.Food.model.Food
+import com.example.tampraktikum.model.Food
 import com.example.tampraktikum.model.FoodSource
 import android.os.Bundle
 import androidx.activity.ComponentActivity

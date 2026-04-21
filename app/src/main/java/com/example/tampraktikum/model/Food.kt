@@ -1,4 +1,4 @@
-package com.Food.model
+package com.example.tampraktikum.model
 import androidx.annotation.DrawableRes
 
 data class Food(
