@@ -1,11 +1,9 @@
 package com.example.tampraktikum.model
 
-import com.example.tampraktikum.R
+import android.content.Context
 
 object FoodSource {
-    val dummyFood = listOf(
-        Food(nama = "Rendang", deskripsi = "Rendang khas Padang", harga = 15000, imageRes = R.drawable.rendang),
-        Food(nama = "Nasi Goreng", deskripsi = "Nasi goreng khas Cikunyit", harga = 20000, imageRes = R.drawable.nasgor),
-        Food(nama = "Sate", deskripsi = "Sate enak 10 pcs", harga = 12000, imageRes = R.drawable.sate),
-    )
+    fun getResourceId(context: Context, imageName: String): Int {
+        return context.resources.getIdentifier(imageName, "drawable", context.packageName)
+    }
 }

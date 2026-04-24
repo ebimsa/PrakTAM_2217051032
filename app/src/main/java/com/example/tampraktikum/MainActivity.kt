@@ -38,6 +38,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,14 +49,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.tampraktikum.network.RetrofitClient
 import com.example.tampraktikum.ui.theme.TAMPraktikumTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -75,16 +77,20 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppNavigation(navController: NavController) {
+    var foods by remember { mutableStateOf<List<Food>>(emptyList()) }
+
     NavHost(
         navController = navController as androidx.navigation.NavHostController,
         startDestination = "home"
     ) {
         composable("home") {
-            DaftarMakanan(navController)
+            DaftarMakananScreen(navController) { fetchedFoods ->
+                foods = fetchedFoods
+            }
         }
         composable("detail/{nama}") { backStackEntry ->
             val nama = backStackEntry.arguments?.getString("nama")
-            val food = FoodSource.dummyFood.find { it.nama == nama }
+            val food = foods.find { it.nama == nama }
             if (food != null) {
                 Box(modifier = Modifier.padding(16.dp)){
                     DetailScreen(food = food, navController = navController, isFullScreen = true)
@@ -95,45 +101,67 @@ fun AppNavigation(navController: NavController) {
 }
 
 @Composable
-fun DaftarMakanan(navController: NavController) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
-    ) {
-        item {
-            Text(
-                text = "Rekomendasi Populer",
-                style = MaterialTheme.typography.titleLarge,
-                color = Color.Black
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(FoodSource.dummyFood) { food ->
-                    FoodRowItem(food = food, navController = navController)
-                }
-            }
-            Spacer(modifier = Modifier.height(45.dp))
-            Text(
-                text = "Daftar Menu Lengkap",
-                style = MaterialTheme.typography.titleLarge,
-                color = Color.Black
-            )
-        }
+fun DaftarMakananScreen(navController: NavController, onFoodsLoaded: (List<Food>) -> Unit = {}) {
+    var foods by remember { mutableStateOf<List<Food>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
 
-        items(FoodSource.dummyFood) { food ->
-            // Menggunakan DetailScreen sebagai item list agar tampilan home sama seperti sebelumnya
-            DetailScreen(food = food, navController = navController, isFullScreen = false)
+    LaunchedEffect(Unit) {
+        try {
+            foods = RetrofitClient.instance.getFoods()
+            onFoodsLoaded(foods)
+            isLoading = false
+        } catch (e: Exception) {
+            isLoading = false
+        }
+    }
+
+    if (isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            item {
+                Text(
+                    text = "Rekomendasi Populer",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.Black
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(foods) { food ->
+                        FoodRowItem(food = food, navController = navController)
+                    }
+                }
+                Spacer(modifier = Modifier.height(45.dp))
+                Text(
+                    text = "Daftar Menu Lengkap",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.Black
+                )
+            }
+
+            items(foods) { food ->
+                DetailScreen(food = food, navController = navController, isFullScreen = false)
+            }
         }
     }
 }
 
 @Composable
 fun FoodRowItem(food: Food, navController: NavController) {
+    val context = LocalContext.current
+    val resId = FoodSource.getResourceId(context, food.imageName)
+    val imageRes = if (resId != 0) resId else R.drawable.rendang
+
     Card(
         modifier = Modifier
             .width(160.dp)
@@ -148,7 +176,7 @@ fun FoodRowItem(food: Food, navController: NavController) {
     ) {
         Column {
             Image(
-                painter = painterResource(id = food.imageRes),
+                painter = painterResource(id = imageRes),
                 contentDescription = food.nama,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -177,6 +205,9 @@ fun DetailScreen(food: Food, navController: NavController, isFullScreen: Boolean
     var isLoading by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val resId = FoodSource.getResourceId(context, food.imageName)
+    val imageRes = if (resId != 0) resId else R.drawable.rendang
 
     Box(modifier = Modifier.fillMaxWidth()) {
         Card(
@@ -190,7 +221,7 @@ fun DetailScreen(food: Food, navController: NavController, isFullScreen: Boolean
             Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
                 Box {
                     Image(
-                        painter = painterResource(id = food.imageRes),
+                        painter = painterResource(id = imageRes),
                         contentDescription = food.nama,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -281,13 +312,5 @@ fun DetailScreen(food: Food, navController: NavController, isFullScreen: Boolean
             hostState = snackbarHostState,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun DaftarMakananPreview() {
-    TAMPraktikumTheme {
-        // Mock navController dummy jika diperlukan untuk preview
     }
 }
